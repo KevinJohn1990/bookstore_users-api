@@ -1,6 +1,7 @@
 package users
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -10,11 +11,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetUser(c *gin.Context) {
-	userId, userErr := strconv.ParseInt(c.Param("user_id"), 10, 64)
+func getUserId(userIdParam string) (int64, *errors.RestErr){
+	userId, userErr := strconv.ParseInt(userIdParam, 10, 64)
 	if userErr != nil {
-		err := errors.NewBadRequestError("invalid user id")
-		c.JSON(err.Status, err)
+		return 0, errors.NewBadRequestError("user id should be a number")
+	}
+	return userId, nil
+}
+
+func GetUser(c *gin.Context) {
+	userId, userErr := getUserId(c.Param("user_id"))
+	if userErr != nil {
+		c.JSON(userErr.Status, userErr)
 		return
 	}
 	user, getErr := services.GetUser(userId)
@@ -41,6 +49,45 @@ func CreateUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, result)
 }
 
-func FindUser(c *gin.Context) {
-	c.String(http.StatusNotImplemented, "implement me")
+func UpdateUser(c *gin.Context) {
+	log.Println("UpdateUser controller")
+	userId, userErr := getUserId(c.Param("user_id"))
+	if userErr != nil {
+		c.JSON(userErr.Status, userErr)
+		return
+	}
+	log.Println("Userid: ", userId)
+	var user users.User
+	if err := c.ShouldBindJSON(&user); err != nil {
+		restErr := errors.NewBadRequestError("invalid json body")
+		c.JSON(restErr.Status, restErr)
+		return
+	}
+	
+	user.Id = userId
+	log.Println("User: ", user)
+
+	isPartial := c.Request.Method == http.MethodPatch
+
+	result, saveErr := services.UpdateUser(isPartial,user)
+	if saveErr != nil {
+		c.JSON(saveErr.Status, saveErr)
+		return
+	}
+	c.JSON(http.StatusOK, result)
 }
+
+func DeleteUser(c *gin.Context) {
+	userId, userErr := getUserId(c.Param("user_id"))
+	if userErr != nil {
+		c.JSON(userErr.Status, userErr)
+		return
+	}
+
+	if err := services.DeleteUser(userId); err != nil{
+		c.JSON(err.Status, err)
+		return
+	}
+	c.JSON(http.StatusOK, map[string]string{"status":"deleted"})
+}
+

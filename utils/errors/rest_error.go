@@ -8,6 +8,13 @@ type RestErr struct {
 	Error   string `json:"error"`
 }
 
+func NewInternalServerError(message string) *RestErr {
+	return &RestErr{
+		Message: message,
+		Status:  http.StatusInternalServerError,
+		Error:   "internal_server_error",
+	}
+}
 func NewBadRequestError(message string) *RestErr {
 	return &RestErr{
 		Message: message,
